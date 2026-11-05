@@ -75,10 +75,10 @@
 const RESOURCE_NAMES={"vehicle-1":"Vehículo 1","room-1":"Habitación 1","room-2":"Habitación 2","service-1":"Servicio 1"};
 const RESOURCE_TYPES={"vehicle-1":"🚐","room-1":"🛏️","room-2":"🛏️","service-1":"◈"};
 let API_BASE=localStorage.getItem("auren_booking_api")||"http://127.0.0.1:8000";
-let adminToken=sessionStorage.getItem("auren_admin_token")||"";
+let adminToken=sessionStorage.getItem("auren_admin_token")||"";\nlet tenantId=localStorage.getItem("auren_tenant_id")||"default";
 let bookings=[];
-async function api(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};if(adminToken)headers["X-Admin-Token"]=adminToken;const response=await fetch(API_BASE+path,{...options,headers});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.detail||"Error de conexión con el motor.");return data}
-function configureAdmin(){const base=prompt("URL base de la API:",API_BASE);if(base===null)return;API_BASE=base.replace(/\/$/,"");localStorage.setItem("auren_booking_api",API_BASE);const token=prompt("Token administrativo configurado en el servidor:");if(token===null)return;adminToken=token;sessionStorage.setItem("auren_admin_token",token);loadBookings()}
+async function api(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};headers["X-Tenant-ID"]=tenantId;if(adminToken)headers["X-Admin-Token"]=adminToken;const response=await fetch(API_BASE+path,{...options,headers});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.detail||"Error de conexión con el motor.");return data}
+function configureAdmin(){const base=prompt("URL base de la API:",API_BASE);if(base===null)return;API_BASE=base.replace(/\/$/,"");localStorage.setItem("auren_booking_api",API_BASE);const workspace=prompt("Identificador del espacio de trabajo:",tenantId);if(workspace===null)return;if(!/^[a-z0-9][a-z0-9-]{1,62}$/.test(workspace.trim())){toast("Identificador de espacio no válido.");return}tenantId=workspace.trim();localStorage.setItem("auren_tenant_id",tenantId);const token=prompt("Token administrativo de este espacio de trabajo:");if(token===null)return;adminToken=token;sessionStorage.setItem("auren_admin_token",token);loadBookings()}
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function fmt(v){return new Date(v).toLocaleString("es-MX",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
 function statusLabel(s){return s==="confirmed"?"Confirmada":s==="cancelled"?"Cancelada":"Completada"}
