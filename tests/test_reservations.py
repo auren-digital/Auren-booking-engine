@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -36,9 +37,10 @@ def test_create_and_list_reservation():
 
 def test_reject_overlapping_reservation():
     start = datetime.now(timezone.utc) + timedelta(days=10)
-    first = client.post("/api/v1/reservations", json=payload("vehicle-overlap", start, start + timedelta(hours=2)))
+    resource_id = f"vehicle-{uuid4()}"
+    first = client.post("/api/v1/reservations", json=payload(resource_id, start, start + timedelta(hours=2)))
     assert first.status_code == 201
-    second = client.post("/api/v1/reservations", json=payload("vehicle-overlap", start + timedelta(minutes=30), start + timedelta(hours=3)))
+    second = client.post("/api/v1/reservations", json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)))
     assert second.status_code == 409
 
 
