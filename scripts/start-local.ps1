@@ -29,5 +29,4 @@ Write-Host "Admin:   http://127.0.0.1:8000/web/admin.html"
 Write-Host "API:     http://127.0.0.1:8000/docs"
 Write-Host "Token admin local (no compartir): $env:BOOKING_ADMIN_TOKEN" -ForegroundColor Yellow
 Write-Host "Para detenerlo: Ctrl + C"
-Start-Process "http://127.0.0.1:8000/docs"
 & .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
