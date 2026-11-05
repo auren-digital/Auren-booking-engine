@@ -1,0 +1,20 @@
+{
+  "name": "AUREN Booking Engine",
+  "short_name": "AUREN Booking",
+  "description": "Reservas y gestión de reservaciones con AUREN.",
+  "lang": "es-MX",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f8f6",
+  "theme_color": "#17201d",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
