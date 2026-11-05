@@ -1,72 +1,86 @@
 # AUREN Booking Engine
 
-Motor genérico de reservas con dos portales separados y una API compartida.
+Motor de reservas multiempresa con portal de clientes, panel de administración y API compartida.
 
-## Portales
+## Componentes
+- Cliente: `web/index.html` — crea reservas y consulta una reserva mediante folio + correo.
+- Administración: `web/admin.html` — consulta, filtra, crea y cancela reservas.
+- API: FastAPI con aislamiento por espacio de trabajo (tenant).
+- PWA: manifest, service worker e icono; instalación mediante HTTPS.
+- Documentación OpenAPI: `/docs`.
 
-- App instalable (PWA): el portal web puede instalarse desde el navegador compatible en Android y escritorio. Incluye caché de la interfaz; las operaciones de reservas requieren conexión con la API.
-
-- Cliente: `web/index.html` — crea reservas y consulta una reserva propia mediante folio + correo.
-- Administración: `web/admin.html` — consulta todas las reservas, filtra, crea y cancela. Requiere token administrativo.
-- Ambos portales utilizan la misma API y la misma base SQLite del servidor.
-
-## Ejecutar localmente
-
+## Desarrollo local
 Requiere Python 3.12 o compatible.
 
 ```bash
 python -m venv .venv
 # Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-Configura un token administrativo antes de iniciar el backend.
+Configura secretos distintos para administración de plataforma y operación del backend.
 
 Windows PowerShell:
 ```powershell
-$env:BOOKING_ADMIN_TOKEN="reemplaza-por-una-clave-larga-y-aleatoria"
+$env:BOOKING_PLATFORM_TOKEN="un-secreto-largo-para-provisionar-empresas"
+$env:BOOKING_ADMIN_TOKEN="un-secreto-largo-para-el-espacio-default"
 uvicorn app.main:app --reload
 ```
 
 macOS/Linux:
 ```bash
-export BOOKING_ADMIN_TOKEN="reemplaza-por-una-clave-larga-y-aleatoria"
+export BOOKING_PLATFORM_TOKEN="un-secreto-largo-para-provisionar-empresas"
+export BOOKING_ADMIN_TOKEN="un-secreto-largo-para-el-espacio-default"
 uvicorn app.main:app --reload
 ```
 
-La API estará en http://127.0.0.1:8000, su documentación en http://127.0.0.1:8000/docs y el índice de API en http://127.0.0.1:8000/api/v1.
-
-En el portal cliente puedes usar **Conectar API** para guardar la URL del backend. La primera vez que publiques el backend, configura `BOOKING_ALLOWED_ORIGINS` con el dominio exacto donde publiques la web.
-
-En otra terminal, desde la raíz del repositorio:
+En otra terminal ejecuta el frontend:
 ```bash
 python -m http.server 5500
 ```
-
-Abre:
 - Cliente: http://localhost:5500/web/
 - Administración: http://localhost:5500/web/admin.html
+- API: http://127.0.0.1:8000
+- Swagger: http://127.0.0.1:8000/docs
 
-En el panel administrativo pulsa **Conectar admin** e introduce la URL de la API y el mismo token definido en el servidor. El token se conserva solo en la sesión de esa pestaña/navegador.
+## Crear un espacio de trabajo empresarial
 
-## Flujo
+La creación de empresas está protegida por `BOOKING_PLATFORM_TOKEN`. Usa el endpoint `POST /api/v1/platform/tenants` con `X-Platform-Token`:
 
-1. El cliente envía la reserva a `POST /api/v1/reservations`.
-2. El backend valida fechas, genera folio y bloquea solapamientos mediante una transacción SQLite.
-3. El cliente consulta su reserva en `GET /api/v1/public/reservations/{folio}?email=...`; se exige coincidencia del correo.
-4. Administración consulta el listado y cancela reservas mediante endpoints protegidos por `X-Admin-Token`.
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/platform/tenants \\
+  -H "Content-Type: application/json" \\
+  -H "X-Platform-Token: $BOOKING_PLATFORM_TOKEN" \\
+  -d '{"name":"Hotel Demo","slug":"hotel-demo"}'
+```
 
-## Configuración
+La respuesta entrega el identificador y el token administrativo una sola vez. Guarda el token en un gestor de secretos; la API almacena únicamente su hash. No lo compartas con clientes. El slug es el `X-Tenant-ID` que se configura en los portales.
 
-- `BOOKING_DB_PATH`: ruta del archivo SQLite (por defecto `bookings.db`).
-- `BOOKING_ADMIN_TOKEN`: clave obligatoria para las operaciones administrativas.
-- `BOOKING_ALLOWED_ORIGINS`: orígenes CORS separados por coma. Por defecto permite localhost y 127.0.0.1 en puerto 5500.
+## Endpoints principales
 
-## App instalable
+| Método | Ruta | Acceso |
+|---|---|---|
+| GET | `/health` | Público; comprueba API y DB |
+| GET | `/api/v1` | Público; metadatos |
+| POST | `/api/v1/platform/tenants` | Token de plataforma |
+| POST | `/api/v1/reservations` | `X-Tenant-ID` |
+| GET | `/api/v1/public/reservations/{folio}?email=...` | `X-Tenant-ID` + correo |
+| GET | `/api/v1/reservations` | Token admin del tenant |
+| POST | `/api/v1/reservations/{id}/cancel` | Token admin del tenant |
 
-La carpeta `web/` incluye `manifest.webmanifest`, `service-worker.js` e `icon.svg`. Publica la carpeta completa bajo HTTPS para habilitar la instalación. La caché guarda únicamente la interfaz estática; no almacena ni simula respuestas de la API. Crear, consultar y administrar reservas requiere conexión activa.
+Los listados, cancelaciones y conflictos de disponibilidad quedan limitados al tenant autenticado. El token de plataforma nunca se utiliza en los portales.
 
-## Límites actuales
+## Variables de entorno
+- `BOOKING_DB_PATH`: ruta de SQLite (por defecto `bookings.db`).
+- `BOOKING_PLATFORM_TOKEN`: secreto para crear espacios de trabajo.
+- `BOOKING_ADMIN_TOKEN`: compatibilidad del espacio `default`; no sustituye la creación de tokens independientes.
+- `BOOKING_ALLOWED_ORIGINS`: orígenes CORS separados por coma.
 
-Esta es una primera integración funcional para desarrollo local. Aún no incluye usuarios/roles individuales, aislamiento multiempresa, pagos, notificaciones, recuperación de acceso, rate limiting, auditoría avanzada, PostgreSQL ni despliegue público. No uses una clave de demostración en producción; despliega con HTTPS, secretos seguros y una estrategia de autenticación robusta.
+## Seguridad y despliegue
+Usa HTTPS, secretos aleatorios fuertes, base de datos persistente y respaldos. Mantén el token de plataforma solo en el servidor. La autenticación administrativa actual utiliza un token por empresa; antes de comercializar se debe añadir inicio de sesión individual, roles, recuperación de acceso, rate limiting, auditoría y rotación de credenciales. SQLite sirve para pruebas y despliegues pequeños; para un SaaS con múltiples instancias, migra a PostgreSQL.
+
+La PWA almacena solo recursos estáticos; las operaciones de reservas requieren conexión. Publica la carpeta completa `web/` bajo HTTPS para instalarla.
+
+## Estado
+Base multi-tenant inicial implementada. No se considera lista para producción hasta completar pruebas de extremo a extremo, despliegue HTTPS, respaldos, controles de abuso, observabilidad y autenticación individual.
