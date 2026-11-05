@@ -397,7 +397,7 @@ def update_resource(
     x_admin_token: str | None = Header(default=None),
 ) -> Resource:
     tenant_id = require_admin(x_admin_token)
-    updates = payload.model_dump(exclude_unset=True)
+    updates = {key: value for key, value in payload.model_dump(exclude_unset=True).items() if value is not None}
     if not updates:
         raise HTTPException(status_code=422, detail="Provide at least one field to update.")
     with closing(connect()) as db:
@@ -506,7 +506,7 @@ def create_reservation(
                 db.rollback()
                 raise HTTPException(
                     status_code=409,
-                    detail="The resource is already reserved during that time range.",
+                    detail="Insufficient remaining capacity for this time range.",
                 )
             db.execute(
                 """
