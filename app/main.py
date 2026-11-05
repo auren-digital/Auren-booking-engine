@@ -27,7 +27,7 @@ ALLOWED_ORIGINS = [
 app = FastAPI(
     title="AUREN Booking Engine",
     description="Shared reservation API for customer and administrative portals",
-    version="0.2.0",
+    version="0.3.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -137,6 +137,19 @@ class Reservation(BaseModel):
     status: Literal["confirmed", "cancelled", "completed"]
     notes: str | None
     created_at: datetime
+
+
+@app.get("/api/v1")
+def api_info() -> dict:
+    return {
+        "service": "AUREN Booking Engine",
+        "version": app.version,
+        "status": "operational",
+        "docs": "/docs",
+        "health": "/health",
+        "customer_portal": "/web/index.html",
+        "admin_portal": "/web/admin.html",
+    }
 
 
 @app.get("/health")
