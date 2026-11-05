@@ -15,11 +15,13 @@
 - [x] Customer portal and admin panel connected to tenant context
 - [x] Installable PWA shell
 - [ ] Individual user accounts, roles, and session management
-- [ ] Resource edit/deactivate endpoints and UI
-- [ ] Availability search and operating hours
+- [x] Resource edit/deactivate API endpoint
+- [x] Public availability search by resource and time range
+- [x] Capacity-aware group reservations
+- [ ] Resource management UI and operating hours
 
 ## v0.5 Booking operations
-- [ ] Resource capacity and group booking rules
+- [x] Resource capacity and group booking rules
 - [ ] Operating hours, blackout dates, lead time, and buffers
 - [ ] Customer profiles and reservation history
 - [ ] Booking lifecycle, reschedule, and cancellation policies
