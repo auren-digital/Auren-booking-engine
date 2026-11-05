@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#17201d"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
 <title>AUREN Booking Engine</title>
 <style>
 :root{--ink:#17201d;--muted:#77817c;--line:#e7ebe8;--paper:#f5f7f5;--white:#fff;--green:#00a887;--green-soft:#e7f7f2;--yellow:#f5c518;--red:#d85c5c;--shadow:0 12px 35px rgba(25,45,36,.07)}
@@ -98,5 +98,6 @@ function closeModal(){document.getElementById("modal").classList.remove("open")}
 document.getElementById("bookingForm").addEventListener("submit",async e=>{e.preventDefault();const start=new Date(document.getElementById("start").value),end=new Date(document.getElementById("end").value);if(!(end>start)){toast("La fecha de fin debe ser posterior al inicio.");return}try{await api("/api/v1/reservations",{method:"POST",body:JSON.stringify({resource_id:document.getElementById("resource").value,customer_name:document.getElementById("customer").value.trim(),customer_email:document.getElementById("email").value.trim()||null,start_at:start.toISOString(),end_at:end.toISOString(),notes:document.getElementById("notes").value||null})});closeModal();e.target.reset();await loadBookings();toast("Reserva creada en el motor central.")}catch(error){toast(error.message)}});
 async function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||!confirm("¿Cancelar la reserva de "+b.customer_name+"?"))return;try{await api("/api/v1/reservations/"+encodeURIComponent(id)+"/cancel",{method:"POST"});await loadBookings();toast("Reserva cancelada en el motor central.")}catch(error){toast(error.message)}}
 loadBookings();</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(console.error));}</script>
 </body>
 </html>
