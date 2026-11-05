@@ -176,3 +176,31 @@ def test_default_legacy_admin_token_stays_scoped_to_default(client):
     )
     assert response.status_code == 200
     assert response.json() == []
+
+
+
+def test_resource_catalog_is_tenant_scoped_and_reservations_require_resource(client):
+    admin_one = create_tenant(client, "hotel-uno")
+    admin_two = create_tenant(client, "hotel-dos")
+    headers_one = {"X-Tenant-ID": "hotel-uno"}
+    public_resources = client.get("/api/v1/public/resources", headers=headers_one)
+    assert public_resources.status_code == 200
+    assert any(item["id"] == "room-1" for item in public_resources.json())
+
+    created = client.post(
+        "/api/v1/resources",
+        headers={"X-Admin-Token": admin_one},
+        json={"id": "spa-room", "name": "Sala de spa", "category": "room", "capacity": 2},
+    )
+    assert created.status_code == 201
+    assert created.json()["capacity"] == 2
+
+    other_resources = client.get("/api/v1/resources", headers={"X-Admin-Token": admin_two})
+    assert all(item["id"] != "spa-room" for item in other_resources.json())
+
+    invalid = client.post(
+        "/api/v1/reservations",
+        headers=headers_one,
+        json=reservation_payload(resource="unknown-resource"),
+    )
+    assert invalid.status_code == 422
