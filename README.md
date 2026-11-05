@@ -89,3 +89,7 @@ La PWA almacena solo recursos estáticos; las operaciones de reservas requieren 
 
 ## Estado
 Base multi-tenant, disponibilidad pública, capacidad por recurso y gestión de recursos implementadas. No se considera lista para producción hasta completar pruebas de extremo a extremo, despliegue HTTPS, respaldos, controles de abuso, observabilidad y autenticación individual.
+
+## Ejecutar gratis en tu computadora (Windows)
+
+Consulta [la guía de desarrollo local sin costo](docs/ZERO-COST-LOCAL.md). No necesitas VPS, dominio ni Docker para probar esta versión.
