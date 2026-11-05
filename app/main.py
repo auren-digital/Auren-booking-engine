@@ -89,6 +89,7 @@ def initialize_database() -> None:
                 end_at TEXT NOT NULL,
                 status TEXT NOT NULL CHECK(status IN ('confirmed', 'cancelled', 'completed')),
                 notes TEXT,
+                quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity > 0),
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (tenant_id) REFERENCES tenants(id)
             )
@@ -98,6 +99,8 @@ def initialize_database() -> None:
             db.execute("ALTER TABLE reservations ADD COLUMN reference_code TEXT")
         if "tenant_id" not in columns:
             db.execute("ALTER TABLE reservations ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'")
+        if "quantity" not in columns:
+            db.execute("ALTER TABLE reservations ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1")
         legacy_rows = db.execute(
             "SELECT id FROM reservations WHERE reference_code IS NULL OR reference_code = ''"
         ).fetchall()
@@ -229,8 +232,26 @@ class Resource(BaseModel):
     is_active: bool
 
 
+class ResourceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    category: str | None = Field(default=None, min_length=2, max_length=40)
+    capacity: int | None = Field(default=None, ge=1, le=10000)
+    is_active: bool | None = None
+
+    @field_validator("name", "category")
+    @classmethod
+    def trim_optional_fields(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be blank.")
+        return value
+
+
 class ReservationCreate(BaseModel):
     resource_id: str = Field(min_length=1, max_length=120)
+    quantity: int = Field(default=1, ge=1, le=10000)
     customer_name: str = Field(min_length=1, max_length=200)
     customer_email: str | None = Field(default=None, max_length=254)
     start_at: datetime
@@ -258,6 +279,7 @@ class Reservation(BaseModel):
     resource_id: str
     customer_name: str
     customer_email: str | None
+    quantity: int = 1
     start_at: datetime
     end_at: datetime
     status: Literal["confirmed", "cancelled", "completed"]
@@ -368,6 +390,84 @@ def create_resource(
     return Resource(id=payload.id, name=payload.name.strip(), category=payload.category.strip(), capacity=payload.capacity, is_active=True)
 
 
+@app.put("/api/v1/resources/{resource_id}", response_model=Resource)
+def update_resource(
+    resource_id: str,
+    payload: ResourceUpdate,
+    x_admin_token: str | None = Header(default=None),
+) -> Resource:
+    tenant_id = require_admin(x_admin_token)
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=422, detail="Provide at least one field to update.")
+    with closing(connect()) as db:
+        current = db.execute(
+            "SELECT id, name, category, capacity, is_active FROM resources WHERE tenant_id = ? AND id = ?",
+            (tenant_id, resource_id),
+        ).fetchone()
+        if current is None:
+            raise HTTPException(status_code=404, detail="Resource not found.")
+        new_capacity = updates.get("capacity", current["capacity"])
+        if new_capacity < current["capacity"]:
+            reservations = db.execute(
+                """SELECT start_at, end_at, quantity FROM reservations
+                   WHERE tenant_id = ? AND resource_id = ? AND status = 'confirmed'""",
+                (tenant_id, resource_id),
+            ).fetchall()
+            events = []
+            for item in reservations:
+                events.append((item["start_at"], 1, item["quantity"]))
+                events.append((item["end_at"], 0, item["quantity"]))
+            active = 0
+            for _, event_type, amount in sorted(events, key=lambda event: (event[0], event[1])):
+                active += amount if event_type == 1 else -amount
+                if active > new_capacity:
+                    raise HTTPException(status_code=409, detail="Capacity cannot be lower than existing confirmed bookings.")
+        assignments = ", ".join(f"{key} = ?" for key in updates)
+        values = [int(value) if key == "is_active" else value for key, value in updates.items()]
+        db.execute(
+            f"UPDATE resources SET {assignments} WHERE tenant_id = ? AND id = ?",
+            (*values, tenant_id, resource_id),
+        )
+        db.commit()
+        updated = db.execute(
+            "SELECT id, name, category, capacity, is_active FROM resources WHERE tenant_id = ? AND id = ?",
+            (tenant_id, resource_id),
+        ).fetchone()
+    return Resource(**{**dict(updated), "is_active": bool(updated["is_active"])})
+
+
+@app.get("/api/v1/public/availability")
+def check_availability(
+    resource_id: str,
+    start_at: datetime,
+    end_at: datetime,
+    quantity: int = Query(default=1, ge=1, le=10000),
+    x_tenant_id: str | None = Header(default=None),
+) -> dict:
+    tenant_id = require_tenant(x_tenant_id)
+    start = utc_iso(start_at)
+    end = utc_iso(end_at)
+    if end <= start:
+        raise HTTPException(status_code=422, detail="end_at must be later than start_at")
+    with closing(connect()) as db:
+        resource = db.execute(
+            "SELECT id, capacity, is_active FROM resources WHERE tenant_id = ? AND id = ?",
+            (tenant_id, resource_id),
+        ).fetchone()
+        if resource is None or not resource["is_active"]:
+            raise HTTPException(status_code=404, detail="Resource not found or inactive.")
+        booked = db.execute(
+            """SELECT COALESCE(SUM(quantity), 0) AS total FROM reservations
+               WHERE tenant_id = ? AND resource_id = ? AND status = 'confirmed'
+                 AND start_at < ? AND end_at > ?""",
+            (tenant_id, resource_id, end, start),
+        ).fetchone()["total"]
+    remaining = max(0, resource["capacity"] - booked)
+    return {"resource_id": resource_id, "capacity": resource["capacity"], "booked": booked,
+            "remaining": remaining, "requested": quantity, "available": remaining >= quantity}
+
+
 @app.post(
     "/api/v1/reservations",
     response_model=Reservation,
@@ -390,22 +490,19 @@ def create_reservation(
         try:
             db.execute("BEGIN IMMEDIATE")
             resource = db.execute(
-                "SELECT id FROM resources WHERE tenant_id = ? AND id = ? AND is_active = 1",
+                "SELECT id, capacity FROM resources WHERE tenant_id = ? AND id = ? AND is_active = 1",
                 (tenant_id, payload.resource_id),
             ).fetchone()
             if resource is None:
                 db.rollback()
                 raise HTTPException(status_code=422, detail="Resource not found or inactive for this workspace.")
-            conflict = db.execute(
-                """
-                SELECT id FROM reservations
-                WHERE tenant_id = ? AND resource_id = ? AND status = 'confirmed'
-                  AND start_at < ? AND end_at > ?
-                LIMIT 1
-                """,
+            booked = db.execute(
+                """SELECT COALESCE(SUM(quantity), 0) AS total FROM reservations
+                   WHERE tenant_id = ? AND resource_id = ? AND status = 'confirmed'
+                     AND start_at < ? AND end_at > ?""",
                 (tenant_id, payload.resource_id, end_at, start_at),
-            ).fetchone()
-            if conflict:
+            ).fetchone()["total"]
+            if booked + payload.quantity > resource["capacity"]:
                 db.rollback()
                 raise HTTPException(
                     status_code=409,
@@ -415,13 +512,13 @@ def create_reservation(
                 """
                 INSERT INTO reservations
                 (id, reference_code, tenant_id, resource_id, customer_name, customer_email,
-                 start_at, end_at, status, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?)
+                 start_at, end_at, status, notes, quantity, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?)
                 """,
                 (
                     reservation_id, reference_code, tenant_id, payload.resource_id,
                     payload.customer_name, payload.customer_email, start_at,
-                    end_at, payload.notes, created_at.isoformat(),
+                    end_at, payload.notes, payload.quantity, created_at.isoformat(),
                 ),
             )
             db.commit()
@@ -437,6 +534,7 @@ def create_reservation(
         resource_id=payload.resource_id,
         customer_name=payload.customer_name,
         customer_email=payload.customer_email,
+        quantity=payload.quantity,
         start_at=start_at,
         end_at=end_at,
         status="confirmed",
