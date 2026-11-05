@@ -4,26 +4,31 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app import main
 
 
 @pytest.fixture
-def client():
-    # Entering TestClient as a context manager runs the application's
-    # startup lifecycle, which creates the SQLite schema before each test.
-    with TestClient(app) as test_client:
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "DB_PATH", str(tmp_path / "test.db"))
+    monkeypatch.setattr(main, "ADMIN_TOKEN", "test-admin-secret")
+    with TestClient(main.app) as test_client:
         yield test_client
 
 
-def payload(resource="vehicle-1", start=None, end=None):
+def payload(resource="vehicle-1", start=None, end=None, email="test@example.com"):
     start = start or datetime.now(timezone.utc) + timedelta(days=1)
     end = end or start + timedelta(hours=2)
     return {
         "resource_id": resource,
         "customer_name": "Test Customer",
+        "customer_email": email,
         "start_at": start.isoformat(),
         "end_at": end.isoformat(),
     }
+
+
+def admin_headers():
+    return {"X-Admin-Token": "test-admin-secret"}
 
 
 def test_health(client):
@@ -32,17 +37,32 @@ def test_health(client):
     assert response.json()["service"] == "auren-booking-engine"
 
 
-def test_create_and_list_reservation(client):
-    response = client.post("/api/v1/reservations", json=payload())
-    assert response.status_code == 201
-    reservation = response.json()
-    assert reservation["status"] == "confirmed"
-    listed = client.get(
-        "/api/v1/reservations",
-        params={"resource_id": reservation["resource_id"]},
+def test_customer_create_and_private_lookup(client):
+    created = client.post("/api/v1/reservations", json=payload())
+    assert created.status_code == 201
+    reservation = created.json()
+    assert reservation["reference_code"].startswith("AUR-")
+
+    found = client.get(
+        f"/api/v1/public/reservations/{reservation['reference_code']}",
+        params={"email": "TEST@example.com"},
     )
+    assert found.status_code == 200
+    assert found.json()["id"] == reservation["id"]
+
+    wrong_email = client.get(
+        f"/api/v1/public/reservations/{reservation['reference_code']}",
+        params={"email": "wrong@example.com"},
+    )
+    assert wrong_email.status_code == 404
+
+
+def test_admin_list_requires_token(client):
+    client.post("/api/v1/reservations", json=payload())
+    assert client.get("/api/v1/reservations").status_code == 401
+    listed = client.get("/api/v1/reservations", headers=admin_headers())
     assert listed.status_code == 200
-    assert any(item["id"] == reservation["id"] for item in listed.json())
+    assert len(listed.json()) == 1
 
 
 def test_reject_overlapping_reservation(client):
@@ -55,13 +75,18 @@ def test_reject_overlapping_reservation(client):
     assert first.status_code == 201
     second = client.post(
         "/api/v1/reservations",
-        json=payload(
-            resource_id,
-            start + timedelta(minutes=30),
-            start + timedelta(hours=3),
-        ),
+        json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)),
     )
     assert second.status_code == 409
+
+
+def test_admin_cancel_requires_token_and_updates_reservation(client):
+    created = client.post("/api/v1/reservations", json=payload()).json()
+    url = f"/api/v1/reservations/{created['id']}/cancel"
+    assert client.post(url).status_code == 401
+    cancelled = client.post(url, headers=admin_headers())
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
 
 
 def test_reject_naive_datetime(client):
