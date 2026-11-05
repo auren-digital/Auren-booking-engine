@@ -10,7 +10,8 @@ from app import main
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "DB_PATH", str(tmp_path / "test.db"))
-    monkeypatch.setattr(main, "LEGACY_ADMIN_TOKEN", "test-admin-secret")\n    monkeypatch.setattr(main, "PLATFORM_TOKEN", "test-platform-secret")
+    monkeypatch.setattr(main, "LEGACY_ADMIN_TOKEN", "test-admin-secret")
+    monkeypatch.setattr(main, "PLATFORM_TOKEN", "test-platform-secret")
     with TestClient(main.app) as test_client:
         yield test_client
 
@@ -27,6 +28,10 @@ def payload(resource="vehicle-1", start=None, end=None, email="test@example.com"
     }
 
 
+def tenant_headers():
+    return {"X-Tenant-ID": "default"}
+
+
 def admin_headers():
     return {"X-Admin-Token": "test-admin-secret"}
 
@@ -35,30 +40,41 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["service"] == "auren-booking-engine"
+    assert response.json()["database"] == "connected"
 
 
 def test_customer_create_and_private_lookup(client):
-    created = client.post("/api/v1/reservations", json=payload(), headers=tenant_headers())
+    created = client.post(
+        "/api/v1/reservations",
+        json=payload(),
+        headers=tenant_headers(),
+    )
     assert created.status_code == 201
     reservation = created.json()
     assert reservation["reference_code"].startswith("AUR-")
 
     found = client.get(
         f"/api/v1/public/reservations/{reservation['reference_code']}",
-        params={"email": "TEST@example.com"},\n        headers=tenant_headers(),
+        params={"email": "TEST@example.com"},
+        headers=tenant_headers(),
     )
     assert found.status_code == 200
     assert found.json()["id"] == reservation["id"]
 
     wrong_email = client.get(
         f"/api/v1/public/reservations/{reservation['reference_code']}",
-        params={"email": "wrong@example.com"},\n        headers=tenant_headers(),
+        params={"email": "wrong@example.com"},
+        headers=tenant_headers(),
     )
     assert wrong_email.status_code == 404
 
 
 def test_admin_list_requires_token(client):
-    client.post("/api/v1/reservations", json=payload())
+    client.post(
+        "/api/v1/reservations",
+        json=payload(),
+        headers=tenant_headers(),
+    )
     assert client.get("/api/v1/reservations").status_code == 401
     listed = client.get("/api/v1/reservations", headers=admin_headers())
     assert listed.status_code == 200
@@ -70,18 +86,24 @@ def test_reject_overlapping_reservation(client):
     resource_id = f"vehicle-{uuid4()}"
     first = client.post(
         "/api/v1/reservations",
-        json=payload(resource_id, start, start + timedelta(hours=2)),\n        headers=tenant_headers(),
+        json=payload(resource_id, start, start + timedelta(hours=2)),
+        headers=tenant_headers(),
     )
     assert first.status_code == 201
     second = client.post(
         "/api/v1/reservations",
-        json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)),\n        headers=tenant_headers(),
+        json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)),
+        headers=tenant_headers(),
     )
     assert second.status_code == 409
 
 
 def test_admin_cancel_requires_token_and_updates_reservation(client):
-    created = client.post("/api/v1/reservations", json=payload()).json()
+    created = client.post(
+        "/api/v1/reservations",
+        json=payload(),
+        headers=tenant_headers(),
+    ).json()
     url = f"/api/v1/reservations/{created['id']}/cancel"
     assert client.post(url).status_code == 401
     cancelled = client.post(url, headers=admin_headers())
@@ -92,5 +114,9 @@ def test_admin_cancel_requires_token_and_updates_reservation(client):
 def test_reject_naive_datetime(client):
     data = payload()
     data["start_at"] = "2030-01-01T10:00:00"
-    response = client.post("/api/v1/reservations", json=data, headers=tenant_headers())
+    response = client.post(
+        "/api/v1/reservations",
+        json=data,
+        headers=tenant_headers(),
+    )
     assert response.status_code == 422
