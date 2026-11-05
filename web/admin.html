@@ -24,7 +24,7 @@
 <div class="side-bottom">AUREN TECHNOLOGY<br>Booking Engine · Demo 0.1</div>
 </aside>
 <main class="main">
-<header class="topbar"><div class="crumb">AUREN / <b id="crumb">Resumen</b></div><div class="top-right"><span class="mode">● MODO DEMOSTRACIÓN</span><div class="avatar">A</div></div></header>
+<header class="topbar"><div class="crumb">AUREN / <b id="crumb">Resumen</b></div><div class="top-right"><button class="mode" onclick="configureAdmin()">● CONECTAR ADMIN</button><div class="avatar">A</div></div></header>
 <div class="content">
 <section class="section active" id="overview">
 <div class="heading"><div><div class="eyebrow">CONTROL CENTER</div><h1>Resumen de reservas</h1><p class="sub">Visualiza y administra la actividad de tus recursos.</p></div><button class="btn primary" onclick="openModal()">＋ Nueva reserva</button></div>
@@ -38,11 +38,11 @@
 <div class="panel"><div class="panel-head"><h2>Reservas recientes</h2><button class="btn secondary" onclick="showPage('reservations')">Ver todas</button></div><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Recurso</th><th>Fecha</th><th>Estado</th></tr></thead><tbody id="recentRows"></tbody></table></div></div>
 <div class="panel"><div class="panel-head"><h2>Actividad</h2><span class="muted" style="font-size:10px">EN ESTA DEMO</span></div><div class="activity" id="activity"></div><div class="quick"><button onclick="openModal()">＋ Crear una reserva</button><button onclick="showPage('resources')">◇ Explorar recursos</button></div></div>
 </div>
-<div class="api-note">Los datos de esta demostración se guardan en este navegador. Todavía no se envían al servidor.</div>
+<div class="api-note">Datos obtenidos desde la API central de AUREN Booking Engine.</div>
 </section>
 <section class="section" id="reservations">
 <div class="heading"><div><div class="eyebrow">BOOKING MANAGEMENT</div><h1>Reservas</h1><p class="sub">Crea, consulta y cancela reservaciones.</p></div><button class="btn primary" onclick="openModal()">＋ Nueva reserva</button></div>
-<div class="notice">Modo demostración: puedes probar el flujo completo. Las reservas se guardan localmente en tu navegador, no en una base de datos compartida.</div>
+<div class="notice">Panel conectado al motor central. Las operaciones administrativas requieren el token configurado en el servidor.</div>
 <div class="filters"><input id="search" placeholder="Buscar cliente o recurso…" oninput="renderReservations()"><select id="statusFilter" onchange="renderReservations()"><option value="">Todos los estados</option><option value="confirmed">Confirmadas</option><option value="cancelled">Canceladas</option><option value="completed">Completadas</option></select></div>
 <div class="panel"><div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Recurso</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="allRows"></tbody></table></div></div>
 </section>
@@ -74,33 +74,27 @@
 <script>
 const RESOURCE_NAMES={"vehicle-1":"Vehículo 1","room-1":"Habitación 1","room-2":"Habitación 2","service-1":"Servicio 1"};
 const RESOURCE_TYPES={"vehicle-1":"🚐","room-1":"🛏️","room-2":"🛏️","service-1":"◈"};
-const KEY="auren_booking_demo_v1";
-const now=new Date();const plus=(h)=>new Date(now.getTime()+h*3600000).toISOString();
-function seed(){return [
-{id:"demo-001",resource_id:"vehicle-1",customer_name:"María López",customer_email:"maria@example.com",start_at:plus(26),end_at:plus(29),status:"confirmed",notes:"Traslado aeropuerto",created_at:plus(-3)},
-{id:"demo-002",resource_id:"room-1",customer_name:"Carlos Méndez",customer_email:"",start_at:plus(48),end_at:plus(96),status:"confirmed",notes:"",created_at:plus(-6)},
-{id:"demo-003",resource_id:"service-1",customer_name:"Sofía Reyes",customer_email:"",start_at:plus(-24),end_at:plus(-22),status:"cancelled",notes:"",created_at:plus(-30)}
-]}
-let bookings=JSON.parse(localStorage.getItem(KEY)||"null")||seed();
-function save(){localStorage.setItem(KEY,JSON.stringify(bookings));render()}
+const API_BASE=localStorage.getItem("auren_booking_api")||"http://127.0.0.1:8000";
+let adminToken=sessionStorage.getItem("auren_admin_token")||"";
+let bookings=[];
+async function api(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};if(adminToken)headers["X-Admin-Token"]=adminToken;const response=await fetch(API_BASE+path,{...options,headers});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.detail||"Error de conexión con el motor.");return data}
+function configureAdmin(){const base=prompt("URL base de la API:",API_BASE);if(base===null)return;localStorage.setItem("auren_booking_api",base.replace(/\/$/,""));const token=prompt("Token administrativo configurado en el servidor:");if(token===null)return;adminToken=token;sessionStorage.setItem("auren_admin_token",token);loadBookings()}
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function fmt(v){return new Date(v).toLocaleString("es-MX",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
 function statusLabel(s){return s==="confirmed"?"Confirmada":s==="cancelled"?"Cancelada":"Completada"}
 function statusPill(s){return '<span class="status '+s+'">'+statusLabel(s)+'</span>'}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3000)}
+async function loadBookings(){try{bookings=await api("/api/v1/reservations");render();document.querySelector(".mode").textContent="● API CONECTADA"}catch(error){toast(error.message);if(!adminToken)configureAdmin()}}
 function render(){document.getElementById("total").textContent=bookings.length;document.getElementById("confirmed").textContent=bookings.filter(x=>x.status==="confirmed").length;document.getElementById("cancelled").textContent=bookings.filter(x=>x.status==="cancelled").length;document.getElementById("resourcesCount").textContent=new Set(bookings.filter(x=>x.status==="confirmed").map(x=>x.resource_id)).size;
 const recent=[...bookings].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,5);
-document.getElementById("recentRows").innerHTML=recent.length?recent.map(x=>'<tr><td><b>'+esc(x.customer_name)+'</b></td><td>'+esc(RESOURCE_NAMES[x.resource_id]||x.resource_id)+'</td><td>'+fmt(x.start_at)+'</td><td>'+statusPill(x.status)+'</td></tr>').join(""):'<tr><td colspan="4" class="empty">Todavía no hay reservas.</td></tr>';
-const activity=recent.slice(0,4);document.getElementById("activity").innerHTML=activity.length?activity.map(x=>'<div class="activity-item"><span class="dot"></span><div><b>'+esc(x.customer_name)+' · '+(x.status==="cancelled"?"reserva cancelada":"reserva registrada")+'</b><small>'+fmt(x.created_at)+'</small></div></div>').join(""):'<div class="empty">Sin actividad todavía.</div>';
-renderReservations();renderResources()}
-function renderReservations(){const q=(document.getElementById("search")?.value||"").toLowerCase();const s=document.getElementById("statusFilter")?.value||"";const rows=bookings.filter(x=>(!s||x.status===s)&&((x.customer_name+" "+(RESOURCE_NAMES[x.resource_id]||x.resource_id)).toLowerCase().includes(q))).sort((a,b)=>a.start_at.localeCompare(b.start_at));document.getElementById("allRows").innerHTML=rows.length?rows.map(x=>'<tr><td><b>'+esc(x.customer_name)+'</b><br><span class="muted">'+esc(x.customer_email||"Sin correo")+'</span></td><td>'+esc(RESOURCE_NAMES[x.resource_id]||x.resource_id)+'</td><td>'+fmt(x.start_at)+'</td><td>'+fmt(x.end_at)+'</td><td>'+statusPill(x.status)+'</td><td>'+(x.status==="confirmed"?'<button class="btn danger" onclick="cancelBooking(\''+x.id+'\')">Cancelar</button>':'—')+'</td></tr>').join(""):'<tr><td colspan="6" class="empty">No hay reservas que coincidan.</td></tr>'}
-function renderResources(){const ids=Object.keys(RESOURCE_NAMES);document.getElementById("resourceCards").innerHTML=ids.map(id=>{const active=bookings.filter(x=>x.resource_id===id&&x.status==="confirmed").length;return '<div class="resource-card"><div class="symbol">'+RESOURCE_TYPES[id]+'</div><h3>'+RESOURCE_NAMES[id]+'</h3><p>ID: '+id+'</p><strong>'+active+' reservas confirmadas</strong></div>'}).join("")}
-function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function showPage(id){document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("crumb").textContent=({overview:"Resumen",reservations:"Reservas",resources:"Recursos"})[id];}
+document.getElementById("recentRows").innerHTML=recent.length?recent.map(x=>'<tr><td><b>'+esc(x.customer_name)+'</b><br><span class="muted">'+esc(x.reference_code)+'</span></td><td>'+esc(RESOURCE_NAMES[x.resource_id]||x.resource_id)+'</td><td>'+fmt(x.start_at)+'</td><td>'+statusPill(x.status)+'</td></tr>').join(""):'<tr><td colspan="4" class="empty">Todavía no hay reservas.</td></tr>';
+document.getElementById("activity").innerHTML=recent.length?recent.slice(0,4).map(x=>'<div class="activity-item"><span class="dot"></span><div><b>'+esc(x.customer_name)+' · '+statusLabel(x.status)+'</b><small>'+fmt(x.created_at)+'</small></div></div>').join(""):'<div class="empty">Sin actividad todavía.</div>';renderReservations();renderResources()}
+function renderReservations(){const q=(document.getElementById("search")?.value||"").toLowerCase();const s=document.getElementById("statusFilter")?.value||"";const rows=bookings.filter(x=>(!s||x.status===s)&&((x.customer_name+" "+x.reference_code+" "+(RESOURCE_NAMES[x.resource_id]||x.resource_id)).toLowerCase().includes(q))).sort((a,b)=>a.start_at.localeCompare(b.start_at));document.getElementById("allRows").innerHTML=rows.length?rows.map(x=>'<tr><td><b>'+esc(x.customer_name)+'</b><br><span class="muted">'+esc(x.reference_code)+' · '+esc(x.customer_email||"Sin correo")+'</span></td><td>'+esc(RESOURCE_NAMES[x.resource_id]||x.resource_id)+'</td><td>'+fmt(x.start_at)+'</td><td>'+fmt(x.end_at)+'</td><td>'+statusPill(x.status)+'</td><td>'+(x.status==="confirmed"?'<button class="btn danger" onclick="cancelBooking(\''+x.id+'\')">Cancelar</button>':'—')+'</td></tr>').join(""):'<tr><td colspan="6" class="empty">No hay reservas que coincidan.</td></tr>'}
+function renderResources(){document.getElementById("resourceCards").innerHTML=Object.keys(RESOURCE_NAMES).map(id=>{const active=bookings.filter(x=>x.resource_id===id&&x.status==="confirmed").length;return '<div class="resource-card"><div class="symbol">'+RESOURCE_TYPES[id]+'</div><h3>'+RESOURCE_NAMES[id]+'</h3><p>ID: '+id+'</p><strong>'+active+' reservas confirmadas</strong></div>'}).join("")}
+function showPage(id){document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===id));document.getElementById("crumb").textContent=({overview:"Resumen",reservations:"Reservas",resources:"Recursos"})[id]}
 document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
-function openModal(){document.getElementById("modal").classList.add("open");const start=new Date(Date.now()+3600000);const end=new Date(Date.now()+7200000);const local=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById("start").value=local(start);document.getElementById("end").value=local(end)}
+function openModal(){document.getElementById("modal").classList.add("open");const start=new Date(Date.now()+3600000),end=new Date(Date.now()+7200000);const local=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);document.getElementById("start").value=local(start);document.getElementById("end").value=local(end)}
 function closeModal(){document.getElementById("modal").classList.remove("open")}
-function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
-document.getElementById("bookingForm").addEventListener("submit",e=>{e.preventDefault();const start=new Date(document.getElementById("start").value),end=new Date(document.getElementById("end").value),resource=document.getElementById("resource").value;if(!(end>start)){toast("La fecha de fin debe ser posterior al inicio.");return}const conflict=bookings.some(x=>x.resource_id===resource&&x.status==="confirmed"&&new Date(x.start_at)<end&&new Date(x.end_at)>start);if(conflict){toast("Ese recurso ya está reservado en ese horario.");return}bookings.push({id:"demo-"+Date.now(),resource_id:resource,customer_name:document.getElementById("customer").value.trim(),customer_email:document.getElementById("email").value.trim(),start_at:start.toISOString(),end_at:end.toISOString(),status:"confirmed",notes:document.getElementById("notes").value,created_at:new Date().toISOString()});save();closeModal();e.target.reset();toast("Reserva creada correctamente.")});
-function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||!confirm("¿Cancelar la reserva de "+b.customer_name+"?"))return;b.status="cancelled";save();toast("Reserva cancelada.")}
-render();
-</script>
-</body></html>
+document.getElementById("bookingForm").addEventListener("submit",async e=>{e.preventDefault();const start=new Date(document.getElementById("start").value),end=new Date(document.getElementById("end").value);if(!(end>start)){toast("La fecha de fin debe ser posterior al inicio.");return}try{await api("/api/v1/reservations",{method:"POST",body:JSON.stringify({resource_id:document.getElementById("resource").value,customer_name:document.getElementById("customer").value.trim(),customer_email:document.getElementById("email").value.trim()||null,start_at:start.toISOString(),end_at:end.toISOString(),notes:document.getElementById("notes").value||null})});closeModal();e.target.reset();await loadBookings();toast("Reserva creada en el motor central.")}catch(error){toast(error.message)}});
+async function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||!confirm("¿Cancelar la reserva de "+b.customer_name+"?"))return;try{await api("/api/v1/reservations/"+encodeURIComponent(id)+"/cancel",{method:"POST"});await loadBookings();toast("Reserva cancelada en el motor central.")}catch(error){toast(error.message)}}
+loadBookings();>
