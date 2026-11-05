@@ -204,3 +204,12 @@ def test_resource_catalog_is_tenant_scoped_and_reservations_require_resource(cli
         json=reservation_payload(resource="unknown-resource"),
     )
     assert invalid.status_code == 422
+
+
+def test_customer_and_admin_portals_are_served_by_api_origin(client):
+    customer = client.get("/web/index.html")
+    admin = client.get("/web/admin.html")
+    assert customer.status_code == 200
+    assert 'id="customerForm"' in customer.text
+    assert admin.status_code == 200
+    assert 'AUREN Booking Engine' in admin.text
