@@ -64,6 +64,19 @@ def initialize_database() -> None:
             )
         """)
         db.execute("""
+            CREATE TABLE IF NOT EXISTS resources (
+                id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'general',
+                capacity INTEGER NOT NULL DEFAULT 1 CHECK(capacity > 0),
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (tenant_id, id),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+        """)
+        db.execute("""
             CREATE TABLE IF NOT EXISTS reservations (
                 id TEXT PRIMARY KEY,
                 reference_code TEXT,
@@ -104,6 +117,19 @@ def initialize_database() -> None:
                 "INSERT INTO tenants (id, slug, name, admin_token_hash, created_at) VALUES (?, ?, ?, ?, ?)",
                 ("default", "default", "Default Workspace", token_hash, datetime.now(timezone.utc).isoformat()),
             )
+        for tenant_row in db.execute("SELECT id FROM tenants").fetchall():
+            for resource_id, resource_name, category in (
+                ("vehicle-1", "Vehículo 1", "vehicle"),
+                ("room-1", "Habitación 1", "room"),
+                ("room-2", "Habitación 2", "room"),
+                ("service-1", "Servicio 1", "service"),
+            ):
+                db.execute(
+                    """INSERT OR IGNORE INTO resources
+                    (id, tenant_id, name, category, capacity, is_active, created_at)
+                    VALUES (?, ?, ?, ?, 1, 1, ?)""",
+                    (resource_id, tenant_row["id"], resource_name, category, datetime.now(timezone.utc).isoformat()),
+                )
         db.execute("""
             CREATE INDEX IF NOT EXISTS idx_reservations_tenant_resource_range
             ON reservations(tenant_id, resource_id, start_at, end_at, status)
@@ -177,6 +203,29 @@ class TenantCreated(BaseModel):
     name: str
     admin_token: str
     created_at: datetime
+
+
+class ResourceCreate(BaseModel):
+    id: str = Field(min_length=2, max_length=120, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=120)
+    category: str = Field(default="general", min_length=2, max_length=40)
+    capacity: int = Field(default=1, ge=1, le=10000)
+
+    @field_validator("id", "name", "category")
+    @classmethod
+    def trim_resource_fields(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("This field cannot be blank.")
+        return value
+
+
+class Resource(BaseModel):
+    id: str
+    name: str
+    category: str
+    capacity: int
+    is_active: bool
 
 
 class ReservationCreate(BaseModel):
@@ -257,11 +306,65 @@ def create_tenant(
                 "INSERT INTO tenants (id, slug, name, admin_token_hash, created_at) VALUES (?, ?, ?, ?, ?)",
                 (tenant_id, payload.slug, payload.name.strip(), hash_secret(admin_token), created_at.isoformat()),
             )
+            for resource_id, resource_name, category in (
+                ("vehicle-1", "Vehículo 1", "vehicle"),
+                ("room-1", "Habitación 1", "room"),
+                ("room-2", "Habitación 2", "room"),
+                ("service-1", "Servicio 1", "service"),
+            ):
+                db.execute(
+                    """INSERT INTO resources
+                    (id, tenant_id, name, category, capacity, is_active, created_at)
+                    VALUES (?, ?, ?, ?, 1, 1, ?)""",
+                    (resource_id, tenant_id, resource_name, category, created_at.isoformat()),
+                )
             db.commit()
         except sqlite3.IntegrityError:
             raise HTTPException(status_code=409, detail="A workspace with this slug already exists.")
     # The clear-text admin token is returned once and is never stored.
     return TenantCreated(id=tenant_id, name=payload.name.strip(), admin_token=admin_token, created_at=created_at)
+
+
+@app.get("/api/v1/public/resources", response_model=list[Resource])
+def list_public_resources(x_tenant_id: str | None = Header(default=None)) -> list[Resource]:
+    tenant_id = require_tenant(x_tenant_id)
+    with closing(connect()) as db:
+        rows = db.execute(
+            "SELECT id, name, category, capacity, is_active FROM resources WHERE tenant_id = ? AND is_active = 1 ORDER BY name",
+            (tenant_id,),
+        ).fetchall()
+    return [Resource(**{**dict(row), "is_active": bool(row["is_active"])}) for row in rows]
+
+
+@app.get("/api/v1/resources", response_model=list[Resource])
+def list_resources(x_admin_token: str | None = Header(default=None)) -> list[Resource]:
+    tenant_id = require_admin(x_admin_token)
+    with closing(connect()) as db:
+        rows = db.execute(
+            "SELECT id, name, category, capacity, is_active FROM resources WHERE tenant_id = ? ORDER BY name",
+            (tenant_id,),
+        ).fetchall()
+    return [Resource(**{**dict(row), "is_active": bool(row["is_active"])}) for row in rows]
+
+
+@app.post("/api/v1/resources", response_model=Resource, status_code=status.HTTP_201_CREATED)
+def create_resource(
+    payload: ResourceCreate,
+    x_admin_token: str | None = Header(default=None),
+) -> Resource:
+    tenant_id = require_admin(x_admin_token)
+    with closing(connect()) as db:
+        try:
+            db.execute(
+                """INSERT INTO resources
+                (id, tenant_id, name, category, capacity, is_active, created_at)
+                VALUES (?, ?, ?, ?, ?, 1, ?)""",
+                (payload.id, tenant_id, payload.name.strip(), payload.category.strip(), payload.capacity, datetime.now(timezone.utc).isoformat()),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="A resource with this ID already exists in the workspace.")
+    return Resource(id=payload.id, name=payload.name.strip(), category=payload.category.strip(), capacity=payload.capacity, is_active=True)
 
 
 @app.post(
@@ -285,6 +388,13 @@ def create_reservation(
     with closing(connect()) as db:
         try:
             db.execute("BEGIN IMMEDIATE")
+            resource = db.execute(
+                "SELECT id FROM resources WHERE tenant_id = ? AND id = ? AND is_active = 1",
+                (tenant_id, payload.resource_id),
+            ).fetchone()
+            if resource is None:
+                db.rollback()
+                raise HTTPException(status_code=422, detail="Resource not found or inactive for this workspace.")
             conflict = db.execute(
                 """
                 SELECT id FROM reservations
