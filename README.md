@@ -1,50 +1,64 @@
 # AUREN Booking Engine
 
-Motor genérico de reservas desarrollado por AUREN. Incluye una API FastAPI y una interfaz web de demostración.
+Motor genérico de reservas con dos portales separados y una API compartida.
 
-## Ver y utilizar la demostración
+## Portales
 
-La interfaz está en `web/index.html`. No necesita instalar paquetes ni una API para probar el flujo visual.
+- Cliente: `web/index.html` — crea reservas y consulta una reserva propia mediante folio + correo.
+- Administración: `web/admin.html` — consulta todas las reservas, filtra, crea y cancela. Requiere token administrativo.
+- Ambos portales utilizan la misma API y la misma base SQLite del servidor.
 
-### En computadora (Windows, macOS o Linux)
-
-1. Descarga el repositorio desde **Code → Download ZIP** y descomprime el archivo.
-2. Abre una terminal dentro de la carpeta del proyecto.
-3. Ejecuta:
-
-```bash
-python -m http.server 5500
-```
-
-4. Abre en tu navegador: http://localhost:5500/web/
-
-La demostración incluye reservas de ejemplo. Puedes crear reservas, buscar, filtrar, cancelar y comprobar que el mismo recurso no se reserve en horarios que se traslapan. Los cambios se guardan en el almacenamiento local del navegador.
-
-## Ejecutar la API
+## Ejecutar localmente
 
 Requiere Python 3.12 o compatible.
 
 ```bash
 python -m venv .venv
-# Windows:
-.venv\\Scripts\\activate
-# macOS / Linux:
-source .venv/bin/activate
-
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Configura un token administrativo antes de iniciar el backend.
+
+Windows PowerShell:
+```powershell
+$env:BOOKING_ADMIN_TOKEN="reemplaza-por-una-clave-larga-y-aleatoria"
 uvicorn app.main:app --reload
-``
+```
 
-API: http://127.0.0.1:8000  
-Documentación interactiva: http://127.0.0.1:8000/docs  
-Health check: http://127.0.0.1:8000/health
+macOS/Linux:
+```bash
+export BOOKING_ADMIN_TOKEN="reemplaza-por-una-clave-larga-y-aleatoria"
+uvicorn app.main:app --reload
+```
 
-## Estado actual
+La API estará en http://127.0.0.1:8000 y su documentación en http://127.0.0.1:8000/docs.
 
-- API FastAPI con creación, consulta y cancelación de reservas.
-- SQLite local para persistencia de la API.
-- Validación de zona horaria y prevención de solapamientos.
-- Interfaz web de demostración con almacenamiento local del navegador.
-- CI: pruebas automatizadas ejecutadas correctamente en GitHub Actions.
+En otra terminal, desde la raíz del repositorio:
+```bash
+python -m http.server 5500
+```
 
-**Importante:** la interfaz de demostración todavía no está conectada a la API. Sus datos son locales al navegador. La API usa su propia base SQLite. La integración entre ambas, autenticación, multiempresa, despliegue y base de datos de producción son etapas pendientes.
+Abre:
+- Cliente: http://localhost:5500/web/
+- Administración: http://localhost:5500/web/admin.html
+
+En el panel administrativo pulsa **Conectar admin** e introduce la URL de la API y el mismo token definido en el servidor. El token se conserva solo en la sesión de esa pestaña/navegador.
+
+## Flujo
+
+1. El cliente envía la reserva a `POST /api/v1/reservations`.
+2. El backend valida fechas, genera folio y bloquea solapamientos mediante una transacción SQLite.
+3. El cliente consulta su reserva en `GET /api/v1/public/reservations/{folio}?email=...`; se exige coincidencia del correo.
+4. Administración consulta el listado y cancela reservas mediante endpoints protegidos por `X-Admin-Token`.
+
+## Configuración
+
+- `BOOKING_DB_PATH`: ruta del archivo SQLite (por defecto `bookings.db`).
+- `BOOKING_ADMIN_TOKEN`: clave obligatoria para las operaciones administrativas.
+- `BOOKING_ALLOWED_ORIGINS`: orígenes CORS separados por coma. Por defecto permite localhost y 127.0.0.1 en puerto 5500.
+
+## Límites actuales
+
+Esta es una primera integración funcional para desarrollo local. Aún no incluye usuarios/roles individuales, aislamiento multiempresa, pagos, notificaciones, recuperación de acceso, rate limiting, auditoría avanzada, PostgreSQL ni despliegue público. No uses una clave de demostración en producción; despliega con HTTPS, secretos seguros y una estrategia de autenticación robusta.
