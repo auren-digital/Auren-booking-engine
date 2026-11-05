@@ -10,7 +10,7 @@ from app import main
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "DB_PATH", str(tmp_path / "test.db"))
-    monkeypatch.setattr(main, "ADMIN_TOKEN", "test-admin-secret")
+    monkeypatch.setattr(main, "LEGACY_ADMIN_TOKEN", "test-admin-secret")\n    monkeypatch.setattr(main, "PLATFORM_TOKEN", "test-platform-secret")
     with TestClient(main.app) as test_client:
         yield test_client
 
@@ -38,21 +38,21 @@ def test_health(client):
 
 
 def test_customer_create_and_private_lookup(client):
-    created = client.post("/api/v1/reservations", json=payload())
+    created = client.post("/api/v1/reservations", json=payload(), headers=tenant_headers())
     assert created.status_code == 201
     reservation = created.json()
     assert reservation["reference_code"].startswith("AUR-")
 
     found = client.get(
         f"/api/v1/public/reservations/{reservation['reference_code']}",
-        params={"email": "TEST@example.com"},
+        params={"email": "TEST@example.com"},\n        headers=tenant_headers(),
     )
     assert found.status_code == 200
     assert found.json()["id"] == reservation["id"]
 
     wrong_email = client.get(
         f"/api/v1/public/reservations/{reservation['reference_code']}",
-        params={"email": "wrong@example.com"},
+        params={"email": "wrong@example.com"},\n        headers=tenant_headers(),
     )
     assert wrong_email.status_code == 404
 
@@ -70,12 +70,12 @@ def test_reject_overlapping_reservation(client):
     resource_id = f"vehicle-{uuid4()}"
     first = client.post(
         "/api/v1/reservations",
-        json=payload(resource_id, start, start + timedelta(hours=2)),
+        json=payload(resource_id, start, start + timedelta(hours=2)),\n        headers=tenant_headers(),
     )
     assert first.status_code == 201
     second = client.post(
         "/api/v1/reservations",
-        json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)),
+        json=payload(resource_id, start + timedelta(minutes=30), start + timedelta(hours=3)),\n        headers=tenant_headers(),
     )
     assert second.status_code == 409
 
@@ -92,5 +92,5 @@ def test_admin_cancel_requires_token_and_updates_reservation(client):
 def test_reject_naive_datetime(client):
     data = payload()
     data["start_at"] = "2030-01-01T10:00:00"
-    response = client.post("/api/v1/reservations", json=data)
+    response = client.post("/api/v1/reservations", json=data, headers=tenant_headers())
     assert response.status_code == 422
