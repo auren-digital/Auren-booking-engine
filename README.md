@@ -9,7 +9,10 @@ Motor de reservas multiempresa con portal de clientes, panel de administración 
 - PWA: manifest, service worker e icono; instalación mediante HTTPS.
 - Documentación OpenAPI: `/docs`.
 
-## Ejecutar con Docker\n\n1. Copia `.env.example` a `.env`.\n2. Sustituye ambos secretos por valores aleatorios distintos y largos.\n3. Ejecuta `docker compose up --build -d`.\n4. Abre `http://localhost:8000/web/` para el portal de clientes y `http://localhost:8000/web/admin.html` para administración.\n\nDocker Compose conserva SQLite en un volumen persistente `booking-data`. En producción, utiliza almacenamiento persistente real y respaldos externos; no despliegues el contenedor con un filesystem efímero. El mismo servidor entrega la API y ambos portales, por lo que normalmente no necesitas CORS entre ellos.\n\n## Desarrollo local
+## Ejecutar con Docker\n\n1. Copia `.env.example` a `.env`.\n2. Sustituye ambos secretos por valores aleatorios distintos y largos.\n3. Ejecuta `docker compose up --build -d`.\n4. Abre `http://localhost:8000/web/` para el portal de clientes y `http://localhost:8000/web/admin.html` para administración.\n\nDocker Compose conserva SQLite en un volumen persistente `booking-data`. En producción, utiliza almacenamiento persistente real y respaldos externos; no despliegues el contenedor con un filesystem efímero. El mismo servidor entrega la API y ambos portales, por lo que normalmente no necesitas CORS entre ellos.\n\n## Despliegue en servidor
+Consulta [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para preparar una instancia de staging en un VPS con Docker, DNS y HTTPS. La guía deja claro qué falta antes de producción comercial.
+
+## Desarrollo local
 Requiere Python 3.12 o compatible.
 
 ```bash
