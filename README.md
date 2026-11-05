@@ -62,7 +62,7 @@ La respuesta entrega el identificador y el token administrativo una sola vez. Gu
 | Método | Ruta | Acceso |
 |---|---|---|
 | GET | `/health` | Público; comprueba API y DB |
-| GET | `/api/v1` | Público; metadatos |
+| GET | `/api/v1` | Público; metadatos |\n| GET | `/api/v1/public/resources` | `X-Tenant-ID` |\n| GET | `/api/v1/resources` | Token admin del tenant |\n| POST | `/api/v1/resources` | Token admin del tenant |
 | POST | `/api/v1/platform/tenants` | Token de plataforma |
 | POST | `/api/v1/reservations` | `X-Tenant-ID` |
 | GET | `/api/v1/public/reservations/{folio}?email=...` | `X-Tenant-ID` + correo |
@@ -83,4 +83,4 @@ Usa HTTPS, secretos aleatorios fuertes, base de datos persistente y respaldos. M
 La PWA almacena solo recursos estáticos; las operaciones de reservas requieren conexión. Publica la carpeta completa `web/` bajo HTTPS para instalarla.
 
 ## Estado
-Base multi-tenant inicial implementada. No se considera lista para producción hasta completar pruebas de extremo a extremo, despliegue HTTPS, respaldos, controles de abuso, observabilidad y autenticación individual.
+Base multi-tenant y catálogo inicial de recursos implementados. No se considera lista para producción hasta completar pruebas de extremo a extremo, despliegue HTTPS, respaldos, controles de abuso, observabilidad y autenticación individual.
