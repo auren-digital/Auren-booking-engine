@@ -30,7 +30,7 @@ ALLOWED_ORIGINS = [
 app = FastAPI(
     title="AUREN Booking Engine",
     description="Multi-tenant reservation API for customer and business portals",
-    version="0.4.0",
+    version="0.5.0",
 )
 app.add_middleware(
     CORSMiddleware,
