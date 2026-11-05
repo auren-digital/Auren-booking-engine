@@ -9,7 +9,7 @@ Motor de reservas multiempresa con portal de clientes, panel de administración 
 - PWA: manifest, service worker e icono; instalación mediante HTTPS.
 - Documentación OpenAPI: `/docs`.
 
-## Desarrollo local
+## Ejecutar con Docker\n\n1. Copia `.env.example` a `.env`.\n2. Sustituye ambos secretos por valores aleatorios distintos y largos.\n3. Ejecuta `docker compose up --build -d`.\n4. Abre `http://localhost:8000/web/` para el portal de clientes y `http://localhost:8000/web/admin.html` para administración.\n\nDocker Compose conserva SQLite en un volumen persistente `booking-data`. En producción, utiliza almacenamiento persistente real y respaldos externos; no despliegues el contenedor con un filesystem efímero. El mismo servidor entrega la API y ambos portales, por lo que normalmente no necesitas CORS entre ellos.\n\n## Desarrollo local
 Requiere Python 3.12 o compatible.
 
 ```bash
@@ -41,7 +41,7 @@ python -m http.server 5500
 ```
 - Cliente: http://localhost:5500/web/
 - Administración: http://localhost:5500/web/admin.html
-- API: http://127.0.0.1:8000
+- API: http://127.0.0.1:8000\n- Portal de clientes servido por API: http://127.0.0.1:8000/web/\n- Panel administrativo servido por API: http://127.0.0.1:8000/web/admin.html
 - Swagger: http://127.0.0.1:8000/docs
 
 ## Crear un espacio de trabajo empresarial
