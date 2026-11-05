@@ -8,7 +8,8 @@ A reusable booking core for multiple businesses. Industry-specific policies shou
 - **Resource:** reservable capacity belonging to one tenant, such as a vehicle, room, appointment slot, professional, or equipment.
 - **Reservation:** customer, tenant, resource, start/end timestamps, status, and optional notes.
 - **Platform provisioning:** privileged endpoint creates tenant workspaces and returns a one-time administrative token.
-- **Availability policy (planned):** operating windows, blackout dates, lead time, buffers, capacity, and timezone rules.
+- **Availability policy:** public resource/time-range availability lookup; operating windows, blackout dates, lead time, buffers, and timezone rules remain planned.
+- **Capacity:** each reservation stores a quantity; overlapping confirmed bookings are summed against the resource capacity.
 - **Pricing policy (planned):** service catalog, rate rules, fees, taxes, and currency.
 
 ## API v0.4
@@ -16,6 +17,8 @@ A reusable booking core for multiple businesses. Industry-specific policies shou
 - `GET /api/v1` — API metadata.
 - `POST /api/v1/platform/tenants` — create tenant; platform token required.
 - `GET /api/v1/public/resources` — active resources for the tenant.
+- `GET /api/v1/public/availability` — remaining capacity for a resource and time range.
+- `PUT /api/v1/resources/{id}` — update or deactivate a tenant resource.
 - `POST /api/v1/reservations` — create a reservation; tenant header required.
 - `GET /api/v1/public/reservations/{folio}?email=...` — customer lookup, tenant + email scoped.
 - `GET /api/v1/resources` — tenant resource catalog; tenant admin token required.
