@@ -83,7 +83,7 @@ def test_admin_list_requires_token(client):
 
 def test_reject_overlapping_reservation(client):
     start = datetime.now(timezone.utc) + timedelta(days=10)
-    resource_id = f"vehicle-{uuid4()}"
+    resource_id = "vehicle-1"
     first = client.post(
         "/api/v1/reservations",
         json=payload(resource_id, start, start + timedelta(hours=2)),
