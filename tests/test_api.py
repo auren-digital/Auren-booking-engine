@@ -213,3 +213,87 @@ def test_customer_and_admin_portals_are_served_by_api_origin(client):
     assert 'id="customerForm"' in customer.text
     assert admin.status_code == 200
     assert 'AUREN Booking Engine' in admin.text
+
+
+def test_capacity_allows_group_bookings_up_to_limit(client):
+    admin = create_tenant(client, "capacity-hotel")
+    resource = client.post(
+        "/api/v1/resources",
+        headers={"X-Admin-Token": admin},
+        json={"id": "meeting-room", "name": "Meeting room", "category": "room", "capacity": 4},
+    )
+    assert resource.status_code == 201
+    headers = {"X-Tenant-ID": "capacity-hotel"}
+    first_payload = reservation_payload("meeting-room")
+    first_payload["quantity"] = 3
+    first = client.post("/api/v1/reservations", headers=headers, json=first_payload)
+    assert first.status_code == 201
+    second_payload = reservation_payload("meeting-room")
+    second_payload["quantity"] = 2
+    second = client.post("/api/v1/reservations", headers=headers, json=second_payload)
+    assert second.status_code == 409
+
+
+def test_public_availability_reports_remaining_capacity(client):
+    admin = create_tenant(client, "availability-hotel")
+    client.post(
+        "/api/v1/resources",
+        headers={"X-Admin-Token": admin},
+        json={"id": "court", "name": "Tennis court", "category": "sport", "capacity": 3},
+    )
+    headers = {"X-Tenant-ID": "availability-hotel"}
+    payload = reservation_payload("court")
+    payload["quantity"] = 2
+    created = client.post("/api/v1/reservations", headers=headers, json=payload)
+    assert created.status_code == 201
+    available = client.get(
+        "/api/v1/public/availability",
+        headers=headers,
+        params={
+            "resource_id": "court",
+            "start_at": payload["start_at"],
+            "end_at": payload["end_at"],
+            "quantity": 2,
+        },
+    )
+    assert available.status_code == 200
+    assert available.json()["remaining"] == 1
+    assert available.json()["available"] is False
+
+
+def test_resource_can_be_updated_and_deactivated(client):
+    admin = create_tenant(client, "resource-admin")
+    headers = {"X-Admin-Token": admin}
+    updated = client.put(
+        "/api/v1/resources/room-1",
+        headers=headers,
+        json={"name": "Suite principal", "capacity": 5},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Suite principal"
+    assert updated.json()["capacity"] == 5
+    deactivated = client.put(
+        "/api/v1/resources/room-1",
+        headers=headers,
+        json={"is_active": False},
+    )
+    assert deactivated.status_code == 200
+    assert deactivated.json()["is_active"] is False
+    public = client.get("/api/v1/public/resources", headers={"X-Tenant-ID": "resource-admin"})
+    assert all(item["id"] != "room-1" for item in public.json())
+
+
+def test_resource_capacity_cannot_be_reduced_below_confirmed_bookings(client):
+    admin = create_tenant(client, "capacity-protection")
+    headers = {"X-Tenant-ID": "capacity-protection"}
+    admin_headers = {"X-Admin-Token": admin}
+    client.post(
+        "/api/v1/resources",
+        headers=admin_headers,
+        json={"id": "bus", "name": "Bus", "category": "vehicle", "capacity": 4},
+    )
+    booking = reservation_payload("bus")
+    booking["quantity"] = 3
+    assert client.post("/api/v1/reservations", headers=headers, json=booking).status_code == 201
+    response = client.put("/api/v1/resources/bus", headers=admin_headers, json={"capacity": 2})
+    assert response.status_code == 409
