@@ -1,32 +1,42 @@
 # AUREN Booking Engine — Roadmap
 
-## v0.1 Foundation
+## v0.1 Foundation — completed
 - [x] FastAPI service and health endpoint
 - [x] Create, list, and cancel reservations
-- [x] Resource/time overlap protection for local SQLite
+- [x] Resource/time overlap protection
 - [x] Timezone-aware timestamps
-- [ ] Automated tests and CI
+- [x] Automated tests and GitHub Actions CI
 
-## v0.2 Availability
-- [ ] Resource and capacity management
-- [ ] Operating hours and blackout dates
-- [ ] Availability search endpoint
-- [ ] Lead-time, buffer, and timezone policies
+## v0.4 SaaS foundation — in progress
+- [x] Workspace provisioning protected by platform secret
+- [x] Tenant-isolated reservation reads, writes, and cancellations
+- [x] Per-workspace administrative token hashes
+- [x] Tenant resource catalog and active-resource validation
+- [x] Customer portal and admin panel connected to tenant context
+- [x] Installable PWA shell
+- [ ] Individual user accounts, roles, and session management
+- [ ] Resource edit/deactivate endpoints and UI
+- [ ] Availability search and operating hours
 
-## v0.3 Business rules
-- [ ] Service catalog and configurable pricing
-- [ ] Booking lifecycle and cancellation policies
-- [ ] Customer and operator roles
+## v0.5 Booking operations
+- [ ] Resource capacity and group booking rules
+- [ ] Operating hours, blackout dates, lead time, and buffers
+- [ ] Customer profiles and reservation history
+- [ ] Booking lifecycle, reschedule, and cancellation policies
+- [ ] Audit events and exportable reports
 
-## v0.4 Integrations
-- [ ] Webhooks and notification adapters
-- [ ] Payment adapter after requirements are defined
-- [ ] External channel/API integration
+## v0.6 Commercial features
+- [ ] Service catalog, pricing, taxes, and currencies
+- [ ] Subscription plans, quotas, and tenant billing
+- [ ] Email/WhatsApp notification adapters
+- [ ] Webhooks and external channel integrations
+- [ ] Payment adapter after provider and compliance requirements are defined
 
 ## v1.0 Production readiness
-- [ ] PostgreSQL and migrations
-- [ ] Authentication, tenant isolation, and audit trail
-- [ ] Concurrency/load tests
-- [ ] Monitoring, backups, and security review
+- [ ] PostgreSQL and managed migrations
+- [ ] Rate limiting, abuse protection, and security review
+- [ ] Backups, restore drills, monitoring, and alerting
+- [ ] Load/concurrency tests and end-to-end browser tests
+- [ ] HTTPS deployment and operational runbooks
 
-Do not expose publicly before production safeguards are implemented.
+Do not expose publicly or sell as production-ready before the remaining security, operations, and deployment safeguards are complete.
