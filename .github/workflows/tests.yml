@@ -20,3 +20,5 @@ jobs:
         run: python -m pytest -q
         env:
           PYTHONPATH: .
+      - name: Build production container
+        run: docker build -t auren-booking-engine:test .
