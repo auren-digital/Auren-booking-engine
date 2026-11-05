@@ -1,0 +1,16 @@
+services:
+  auren-booking:
+    build: .
+    container_name: auren-booking-engine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BOOKING_DB_PATH: /data/bookings.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - booking-data:/data
+
+volumes:
+  booking-data:
