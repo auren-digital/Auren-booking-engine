@@ -63,6 +63,14 @@ def initialize_database() -> None:
         columns = {row["name"] for row in db.execute("PRAGMA table_info(reservations)")}
         if "reference_code" not in columns:
             db.execute("ALTER TABLE reservations ADD COLUMN reference_code TEXT")
+        legacy_rows = db.execute(
+            "SELECT id FROM reservations WHERE reference_code IS NULL OR reference_code = ''"
+        ).fetchall()
+        for legacy in legacy_rows:
+            db.execute(
+                "UPDATE reservations SET reference_code = ? WHERE id = ?",
+                (f"AUR-{uuid4().hex[:8].upper()}", legacy["id"]),
+            )
         db.execute("""
             CREATE INDEX IF NOT EXISTS idx_reservations_resource_range
             ON reservations(resource_id, start_at, end_at, status)
