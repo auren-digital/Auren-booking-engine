@@ -11,13 +11,14 @@ if (-not (Test-Path ".venv")) {
 
 $secretsFile = ".local-secrets.ps1"
 if (-not (Test-Path $secretsFile)) {
-    $platform = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(36))
-    $admin = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(36))
-    @"
-\$env:BOOKING_PLATFORM_TOKEN = "$platform"
-\$env:BOOKING_ADMIN_TOKEN = "$admin"
-\$env:BOOKING_DB_PATH = "bookings.db"
-"@ | Set-Content -Encoding UTF8 $secretsFile
+    $platform = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
+    $admin = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
+    $lines = @(
+        '$env:BOOKING_PLATFORM_TOKEN = "' + $platform + '"',
+        '$env:BOOKING_ADMIN_TOKEN = "' + $admin + '"',
+        '$env:BOOKING_DB_PATH = "bookings.db"'
+    )
+    Set-Content -Path $secretsFile -Value $lines -Encoding UTF8
 }
 . .\$secretsFile
 
