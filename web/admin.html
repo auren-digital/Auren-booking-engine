@@ -74,11 +74,11 @@
 <script>
 const RESOURCE_NAMES={"vehicle-1":"Vehículo 1","room-1":"Habitación 1","room-2":"Habitación 2","service-1":"Servicio 1"};
 const RESOURCE_TYPES={"vehicle-1":"🚐","room-1":"🛏️","room-2":"🛏️","service-1":"◈"};
-const API_BASE=localStorage.getItem("auren_booking_api")||"http://127.0.0.1:8000";
+let API_BASE=localStorage.getItem("auren_booking_api")||"http://127.0.0.1:8000";
 let adminToken=sessionStorage.getItem("auren_admin_token")||"";
 let bookings=[];
 async function api(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};if(adminToken)headers["X-Admin-Token"]=adminToken;const response=await fetch(API_BASE+path,{...options,headers});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.detail||"Error de conexión con el motor.");return data}
-function configureAdmin(){const base=prompt("URL base de la API:",API_BASE);if(base===null)return;localStorage.setItem("auren_booking_api",base.replace(/\/$/,""));const token=prompt("Token administrativo configurado en el servidor:");if(token===null)return;adminToken=token;sessionStorage.setItem("auren_admin_token",token);loadBookings()}
+function configureAdmin(){const base=prompt("URL base de la API:",API_BASE);if(base===null)return;API_BASE=base.replace(/\/$/,"");localStorage.setItem("auren_booking_api",API_BASE);const token=prompt("Token administrativo configurado en el servidor:");if(token===null)return;adminToken=token;sessionStorage.setItem("auren_admin_token",token);loadBookings()}
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function fmt(v){return new Date(v).toLocaleString("es-MX",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
 function statusLabel(s){return s==="confirmed"?"Confirmada":s==="cancelled"?"Cancelada":"Completada"}
@@ -97,4 +97,6 @@ function openModal(){document.getElementById("modal").classList.add("open");cons
 function closeModal(){document.getElementById("modal").classList.remove("open")}
 document.getElementById("bookingForm").addEventListener("submit",async e=>{e.preventDefault();const start=new Date(document.getElementById("start").value),end=new Date(document.getElementById("end").value);if(!(end>start)){toast("La fecha de fin debe ser posterior al inicio.");return}try{await api("/api/v1/reservations",{method:"POST",body:JSON.stringify({resource_id:document.getElementById("resource").value,customer_name:document.getElementById("customer").value.trim(),customer_email:document.getElementById("email").value.trim()||null,start_at:start.toISOString(),end_at:end.toISOString(),notes:document.getElementById("notes").value||null})});closeModal();e.target.reset();await loadBookings();toast("Reserva creada en el motor central.")}catch(error){toast(error.message)}});
 async function cancelBooking(id){const b=bookings.find(x=>x.id===id);if(!b||!confirm("¿Cancelar la reserva de "+b.customer_name+"?"))return;try{await api("/api/v1/reservations/"+encodeURIComponent(id)+"/cancel",{method:"POST"});await loadBookings();toast("Reserva cancelada en el motor central.")}catch(error){toast(error.message)}}
-loadBookings();>
+loadBookings();</script>
+</body>
+</html>
