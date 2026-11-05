@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 DB_PATH = os.getenv("BOOKING_DB_PATH", "bookings.db")
@@ -512,3 +513,8 @@ def cancel_reservation(
             (reservation_id, tenant_id),
         ).fetchone()
     return Reservation(**dict(updated))
+
+
+# Serve both portals from the same origin as the API so the PWA and API share
+# one deployment and do not need cross-origin credentials.
+app.mount("/web", StaticFiles(directory="web", html=True), name="web")
