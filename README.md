@@ -65,7 +65,8 @@ La respuesta entrega el identificador y el token administrativo una sola vez. Gu
 | Método | Ruta | Acceso |
 |---|---|---|
 | GET | `/health` | Público; comprueba API y DB |
-| GET | `/api/v1` | Público; metadatos |\n| GET | `/api/v1/public/resources` | `X-Tenant-ID` |
+| GET | `/api/v1` | Público; metadatos |\n| GET | `/api/v1/public/workspace` | `X-Tenant-ID` (identidad pública del espacio) |
+| GET | `/api/v1/public/resources` | `X-Tenant-ID` |
 | GET | `/api/v1/public/availability` | `X-Tenant-ID` + recurso + rango horario |\n| GET | `/api/v1/resources` | Token admin del tenant |\n| POST | `/api/v1/resources` | Token admin del tenant |
 | PUT | `/api/v1/resources/{id}` | Token admin del tenant |
 | POST | `/api/v1/platform/tenants` | Token de plataforma |
