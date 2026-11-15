@@ -4,11 +4,7 @@ This version runs on Hostinger Shared with PHP 8.1+ and MySQL/MariaDB. It does n
 
 ## Files to upload
 
-Upload the repository folder `web/` intact into `public_html/web/`. The root `.htaccess` sets `web/index.html` as the homepage, preserving the existing `/web/` customer portal and `/web/admin.html` admin portal. Also upload:
-- root `.htaccess` to `public_html/.htaccess`
-- `api/index.php` to `public_html/api/index.php`
-- `api/.htaccess` to `public_html/api/.htaccess`
-- `api/config.example.php` to `public_html/api/config.example.php`
+Use the ready-to-upload files in [`hostinger-shared/`](../hostinger-shared/). Download the repository ZIP for branch `deploy/hostinger-php-mysql`, open that folder, and upload its **contents** into `public_html/` (not the folder itself). It already contains the `web/`, `api/` and root `.htaccess` structure, preserving `/web/` and `/web/admin.html`.
 
 Do not upload Python files, tests, Git metadata, Docker files, local databases or development secrets.
 
