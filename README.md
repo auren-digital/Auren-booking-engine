@@ -8,8 +8,8 @@ Esta rama incluye una implementación compatible con **PHP 8.1+ y MySQL** para a
 
 Sigue la guía paso a paso: [docs/HOSTINGER-SHARED.md](docs/HOSTINGER-SHARED.md).
 
-- Portal de clientes: `web/index.html`
-- Panel administrativo: `web/admin.html`
+- Portal de clientes: `web/index.html` (portal en `/web/`)
+- Panel administrativo: `web/admin.html` (panel en `/web/admin.html`)
 - API PHP: `api/index.php`
 - Configuración privada de ejemplo: `api/config.example.php` (copiar en el servidor como `config.php`; nunca subir secretos a GitHub)
 - Reglas Apache: `.htaccess` y `api/.htaccess`
