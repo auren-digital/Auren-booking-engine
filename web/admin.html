@@ -75,7 +75,7 @@
 <script>
 const RESOURCE_NAMES={"vehicle-1":"Vehículo 1","room-1":"Habitación 1","room-2":"Habitación 2","service-1":"Servicio 1"};
 const RESOURCE_TYPES={"vehicle-1":"🚐","room-1":"🛏️","room-2":"🛏️","service-1":"◈"};
-let API_BASE=localStorage.getItem("auren_booking_api")||"http://127.0.0.1:8000";
+let API_BASE=(()=>{const saved=localStorage.getItem("auren_booking_api");return saved&&!/localhost|127\.0\.0\.1/.test(saved)?saved:window.location.origin})();
 let adminToken=sessionStorage.getItem("auren_admin_token")||"";
 let tenantId=localStorage.getItem("auren_tenant_id")||"default";
 let bookings=[];
