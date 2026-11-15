@@ -44,6 +44,25 @@ def test_health_reports_database(client):
     assert response.json()["database"] == "connected"
 
 
+def test_public_workspace_returns_only_public_identity(client):
+    create_tenant(client, "public-hotel")
+    response = client.get(
+        "/api/v1/public/workspace",
+        headers={"X-Tenant-ID": "public-hotel"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"id": "public-hotel", "name": "Empresa public-hotel"}
+    assert "admin_token" not in response.json()
+
+
+def test_public_workspace_rejects_unknown_tenant(client):
+    response = client.get(
+        "/api/v1/public/workspace",
+        headers={"X-Tenant-ID": "missing-hotel"},
+    )
+    assert response.status_code == 404
+
+
 def test_platform_provisioning_requires_platform_token(client):
     response = client.post(
         "/api/v1/platform/tenants",

@@ -314,6 +314,19 @@ def health() -> dict:
     }
 
 
+@app.get("/api/v1/public/workspace")
+def public_workspace(x_tenant_id: str | None = Header(default=None)) -> dict:
+    """Return the public identity of the workspace selected by the customer portal."""
+    tenant_id = require_tenant(x_tenant_id)
+    with closing(connect()) as db:
+        tenant = db.execute(
+            "SELECT id, name FROM tenants WHERE id = ?", (tenant_id,)
+        ).fetchone()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+    return {"id": tenant["id"], "name": tenant["name"]}
+
+
 @app.post("/api/v1/platform/tenants", response_model=TenantCreated, status_code=status.HTTP_201_CREATED)
 def create_tenant(
     payload: TenantCreate,
