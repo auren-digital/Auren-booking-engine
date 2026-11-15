@@ -109,7 +109,7 @@ function initializeSchema(PDO $pdo,array $config):void {
         CONSTRAINT fk_reservations_resource FOREIGN KEY (tenant_id,resource_id) REFERENCES resources(tenant_id,id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $defaultToken=(string)($config['default_admin_token']??'');
-    if($defaultToken==='')$defaultToken=bin2hex(random_bytes(32));
+    if($defaultToken==='')fail(503,'Set default_admin_token in api/config.php before using the API.');
     $stmt=$pdo->prepare("INSERT IGNORE INTO tenants (id,slug,name,admin_token_hash,created_at) VALUES ('default','default','Default Workspace',?,UTC_TIMESTAMP(6))");
     $stmt->execute([hashToken($defaultToken)]);
     $seed=[['vehicle-1','Vehículo 1','vehicle'],['room-1','Habitación 1','room'],['room-2','Habitación 2','room'],['service-1','Servicio 1','service']];
