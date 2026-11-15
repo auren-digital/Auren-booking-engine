@@ -1,3 +1,4 @@
+DirectoryIndex web/index.html
 Options -Indexes
 RewriteEngine On
 
