@@ -68,7 +68,7 @@ function isoDate(?string $value):?string {
 }
 function reservationOut(array $row):array {
     foreach(['start_at','end_at','created_at'] as $field)$row[$field]=isoDate($row[$field]??null);
-    $row['quantity']=(int)$row['quantity'];return $row;
+    $row['quantity']=(int)$row['quantity'];unset($row['tenant_id']);return $row;
 }
 function resourceOut(array $row):array {
     $row['capacity']=(int)$row['capacity'];$row['is_active']=(bool)$row['is_active'];return $row;
@@ -160,7 +160,7 @@ $tenantHeader=headerValue($headers,'x-tenant-id');$adminHeader=headerValue($head
 $platformHeader=headerValue($headers,'x-platform-token');$input=bodyJson();
 
 if($method==='GET'&&$path==='/health'){$pdo->query('SELECT 1')->fetch();respond(['status'=>'ok','service'=>'auren-booking-engine','version'=>'0.6.0','database'=>'connected','timestamp'=>nowUtc()]);}
-if($method==='GET'&&$path==='/api/v1')respond(['service'=>'AUREN Booking Engine','version'=>'0.6.0','status'=>'operational','multi_tenant'=>true,'docs'=>null,'health'=>'/health','customer_portal'=>'/','admin_portal'=>'/admin.html']);
+if($method==='GET'&&$path==='/api/v1')respond(['service'=>'AUREN Booking Engine','version'=>'0.6.0','status'=>'operational','multi_tenant'=>true,'docs'=>null,'health'=>'/health','customer_portal'=>'/web/index.html','admin_portal'=>'/web/admin.html']);
 
 if($method==='POST'&&$path==='/api/v1/platform/tenants'){
     requirePlatform($config,$platformHeader);$name=requiredString($input,'name',2,120);$slug=requiredString($input,'slug',2,63);
