@@ -93,3 +93,7 @@ Base multi-tenant, disponibilidad pública, capacidad por recurso y gestión de 
 ## Ejecutar gratis en tu computadora (Windows)
 
 Consulta [la guía de desarrollo local sin costo](docs/ZERO-COST-LOCAL.md). No necesitas VPS, dominio ni Docker para probar esta versión.
+
+
+## Despliegue en hosting HTML
+Consulta [docs/STATIC-HOSTING.md](docs/STATIC-HOSTING.md) para publicar los portales estáticos y conectar la API remota por HTTPS.
