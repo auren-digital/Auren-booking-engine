@@ -17,3 +17,5 @@ jobs:
         run: |
           php -l api/index.php
           php -l api/config.example.php
+          php -l hostinger-shared/api/index.php
+          php -l hostinger-shared/api/config.example.php
