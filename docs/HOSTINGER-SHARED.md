@@ -4,7 +4,7 @@ This version runs on Hostinger Shared with PHP 8.1+ and MySQL/MariaDB. It does n
 
 ## Files to upload
 
-Upload the **contents** of repository folder `web/` directly into `public_html/`, so `index.html` and `admin.html` are at the document root. Also upload:
+Upload the repository folder `web/` intact into `public_html/web/`. The root `.htaccess` sets `web/index.html` as the homepage, preserving the existing `/web/` customer portal and `/web/admin.html` admin portal. Also upload:
 - root `.htaccess` to `public_html/.htaccess`
 - `api/index.php` to `public_html/api/index.php`
 - `api/.htaccess` to `public_html/api/.htaccess`
@@ -35,8 +35,8 @@ In hPanel select PHP 8.1 or newer and confirm PDO MySQL and mbstring are enabled
 
 ## 4. URLs
 
-- Customer portal: `https://YOUR-DOMAIN/`
-- Admin panel: `https://YOUR-DOMAIN/admin.html`
+- Customer portal: `https://YOUR-DOMAIN/web/`
+- Admin panel: `https://YOUR-DOMAIN/web/admin.html`
 - Health check: `https://YOUR-DOMAIN/health`
 - API metadata: `https://YOUR-DOMAIN/api/v1`
 
