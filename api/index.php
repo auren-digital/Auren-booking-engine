@@ -116,7 +116,17 @@ function initializeSchema(PDO $pdo,array $config):void {
     $stmt=$pdo->prepare("INSERT IGNORE INTO resources (id,tenant_id,name,category,capacity,is_active,created_at) VALUES (?, 'default', ?, ?, 1, 1, UTC_TIMESTAMP(6))");
     foreach($seed as $item)$stmt->execute($item);
 }
-try{initializeSchema($pdo,$config);}catch(Throwable $e){error_log('AUREN Booking schema init failed: '.$e->getMessage());fail(500,'Database schema initialization failed.');}
+try {
+    $check = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('tenants','resources','reservations')")->fetchColumn();
+    $defaultExists = false;
+    if ((int)$check === 3) {
+        $defaultExists = (bool)$pdo->query("SELECT 1 FROM tenants WHERE id='default' LIMIT 1")->fetchColumn();
+    }
+    if ((int)$check !== 3 || !$defaultExists) initializeSchema($pdo,$config);
+} catch(Throwable $e) {
+    error_log('AUREN Booking schema init failed: '.$e->getMessage());
+    fail(500,'Database schema initialization failed.');
+}
 
 function requireTenant(PDO $pdo,?string $tenantId):string {
     if(!$tenantId||!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/',$tenantId))fail(400,'A valid X-Tenant-ID header is required.');
